@@ -7,6 +7,7 @@ import {
 	setRunStatus,
 } from "@oh-my-pi/pi-coding-agent/utils/run-status";
 import * as titleGenerator from "@oh-my-pi/pi-coding-agent/utils/title-generator";
+import { UserMessageComponent } from "@oh-my-pi/pi-tui/chat/user-message";
 import { setTerminalHeadless } from "@oh-my-pi/pi-utils";
 
 // OSC 7501 Program Status Protocol reports, as the terminal parses them:
@@ -121,6 +122,40 @@ describe("run status OSC 7501 reporting", () => {
 			report(`state=blocked:kind=permission:app=omp:msg=${Buffer.from("Approve the command?").toString("base64")}`),
 			report(`state=blocked:kind=permission:app=omp:msg=${Buffer.from("Approve the command?").toString("base64")}`),
 			report("state=done:app=omp"),
+		]);
+	});
+
+	it("leaves prompt-zone marks off user bubbles only while the terminal holds a working or blocked record", () => {
+		const bubble = new UserMessageComponent("Run sleep 15");
+		const steps: [string, () => void][] = [
+			["idle", () => setRunStatus({ state: "idle" })],
+			["working", () => setRunStatus({ state: "working" })],
+			["blocked", () => setRunStatus({ state: "blocked", kind: "question", msg: "Which one?" })],
+			["done", () => setRunStatus({ state: "done" })],
+			["working again", () => setRunStatus({ state: "working" })],
+			["reporting off", () => setProgramStatusEnabled(false)],
+			["reporting on", () => setProgramStatusEnabled(true)],
+			["error", () => setRunStatus({ state: "error", msg: "boom" })],
+			["working at teardown", () => setRunStatus({ state: "working" })],
+			["teardown", () => disposeProgramStatus()],
+		];
+
+		const marks = steps.map(([label, step]) => {
+			step();
+			return [label, bubble.render(40).some(row => row.includes("\x1b]133;A\x07"))];
+		});
+
+		expect(marks).toEqual([
+			["idle", true],
+			["working", false],
+			["blocked", false],
+			["done", true],
+			["working again", false],
+			["reporting off", true],
+			["reporting on", false],
+			["error", true],
+			["working at teardown", false],
+			["teardown", true],
 		]);
 	});
 });

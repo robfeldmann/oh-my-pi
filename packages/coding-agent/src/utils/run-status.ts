@@ -10,6 +10,7 @@
  * send `state=clear` so no stale record outlives the session.
  */
 import { writeTerminalSequence } from "@oh-my-pi/pi-tui";
+import { setPromptZoneMarks } from "@oh-my-pi/pi-tui/chat/user-message";
 import { truncateLineBytes } from "@oh-my-pi/pi-tui/tools/streaming-output";
 import { APP_NAME, isTerminalHeadless, sanitizeText } from "@oh-my-pi/pi-utils";
 import { setTerminalTitleState, type TerminalTitleState } from "./title-generator";
@@ -80,6 +81,15 @@ function formatReport(status: RunStatus): string {
 	return `${OSC_7501}${body}${ST}`;
 }
 
+/**
+ * A new prompt (OSC 133 `A`) makes the terminal drop `working` and `blocked`
+ * records, so user bubbles leave out their prompt zone while one is held.
+ */
+function syncPromptZoneMarks(): void {
+	const state = runtime.reported === undefined ? undefined : runtime.status.state;
+	setPromptZoneMarks(state !== "working" && state !== "blocked");
+}
+
 function report(): void {
 	if (runtime.disposed || !runtime.enabled) return;
 	if (!process.stdout.isTTY || isTerminalHeadless()) return;
@@ -87,12 +97,14 @@ function report(): void {
 	if (next === runtime.reported) return;
 	writeTerminalSequence(next);
 	runtime.reported = next;
+	syncPromptZoneMarks();
 }
 
 function clear(): void {
 	if (runtime.reported === undefined) return;
 	runtime.reported = undefined;
 	writeTerminalSequence(CLEAR_REPORT);
+	syncPromptZoneMarks();
 }
 
 /**

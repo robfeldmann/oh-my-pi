@@ -6,6 +6,7 @@
 
 - Added `PI_LINK_SCHEME` and `PI_LINK_HOST` for host-qualified file links with optional line and column positions in remote sessions ([#15855](https://github.com/can1357/oh-my-pi/pull/15855) by [@KunoLu](https://github.com/KunoLu)).
 - `AssistantMessageComponent` accepts display-only assistant text renderers and redraws one reply with `rerenderMessage(timestamp)`; `splitAssistantMessageToolTimeline` reports each segment's `contentOffsets` ([#16238](https://github.com/can1357/oh-my-pi/pull/16238) by [@materemias](https://github.com/materemias))
+- Added `setPromptZoneMarks()` to turn the OSC 133 prompt-zone marks on user messages off and on ([#17145](https://github.com/can1357/oh-my-pi/issues/17145))
 ### Changed
 
 - Improved view placement for JSON trees when output lines are column‑capped

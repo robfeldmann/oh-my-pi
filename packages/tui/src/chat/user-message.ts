@@ -56,6 +56,20 @@ const OSC133_COMMAND_START = "\x1b]133;C\x07";
 const OSC133_COMMAND_DONE = "\x1b]133;D;0\x07";
 const OSC133_ZONE_CLOSE = OSC133_ZONE_END + OSC133_COMMAND_START + OSC133_COMMAND_DONE;
 
+// `133;A` also tells the terminal a new shell prompt began, and OSC 7501
+// terminals drop a program's `working` and `blocked` records on it (Rex counts
+// the dropped record as finished and notifies). While such a record is held,
+// bubbles render without the zone; the bump makes every bubble rebuild its rows.
+let promptZoneMarks = true;
+let promptZoneEpoch = 0;
+
+/** Turn OSC 133 prompt-zone marks on user bubbles on or off; bubbles pick it up on their next render. */
+export function setPromptZoneMarks(enabled: boolean): void {
+	if (promptZoneMarks === enabled) return;
+	promptZoneMarks = enabled;
+	promptZoneEpoch++;
+}
+
 /** How a user bubble styles its prose and chips (see {@link userBubbleColor}). */
 export interface UserBubbleOptions {
 	/** Filesystem paths for attached image chips, indexed by chip number. */
@@ -132,6 +146,7 @@ export class UserMessageComponent extends Container implements ReactionTarget, T
 	// component reference-stable for the transcript's incremental assembly and
 	// never mutates the container's cached array.
 	#zoneSource: readonly string[] | undefined;
+	#zoneEpoch = -1;
 	#zoneLines: string[] | undefined;
 	readonly #bgColor: (value: string) => string;
 	readonly #liveSteered: boolean;
@@ -345,14 +360,17 @@ export class UserMessageComponent extends Container implements ReactionTarget, T
 			const emergency = this.#selectEmergencyRow(lines);
 			if (emergency !== undefined) return [emergency];
 		}
-		if (this.#zoneSource === lines && this.#zoneLines !== undefined) {
+		if (this.#zoneSource === lines && this.#zoneEpoch === promptZoneEpoch && this.#zoneLines !== undefined) {
 			return this.#zoneLines;
 		}
 		const wrapped = lines.slice();
 		if (this.#reaction !== undefined || this.#liveSteered) wrapped[0] = this.#badgeRow(width);
-		wrapped[0] = OSC133_ZONE_START + wrapped[0];
-		wrapped[wrapped.length - 1] = wrapped[wrapped.length - 1] + OSC133_ZONE_CLOSE;
+		if (promptZoneMarks) {
+			wrapped[0] = OSC133_ZONE_START + wrapped[0];
+			wrapped[wrapped.length - 1] = wrapped[wrapped.length - 1] + OSC133_ZONE_CLOSE;
+		}
 		this.#zoneSource = lines;
+		this.#zoneEpoch = promptZoneEpoch;
 		this.#zoneLines = wrapped;
 		return wrapped;
 	}
